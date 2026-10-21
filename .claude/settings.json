@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(node preview.ts mycelium.png '{\"mode\":\"mycelium\"}')",
+      "Bash(node preview.ts mycelium-h1.png '{\"mode\":\"mycelium\",\"modes\":{\"mycelium\":{\"halo\":1,\"fusion\":0.2}}}')",
+      "Bash(node preview.ts mycelium-b.png '{\"mode\":\"mycelium\",\"seed\":12345,\"modes\":{\"mycelium\":{\"fusion\":0.15,\"branching\":0.7}}}')",
+      "Bash(node preview.ts mycelium-b.png '{\"mode\":\"mycelium\",\"seed\":12345,\"modes\":{\"mycelium\":{\"fusion\":0.15,\"branching\":0.7,\"halo\":3}}}')",
+      "Bash(node preview.ts mycelium-max.png '{\"mode\":\"mycelium\",\"cols\":220,\"seed\":777,\"modes\":{\"mycelium\":{\"inocula\":6,\"reach\":1,\"branching\":1,\"halo\":8}}}')",
+      "Bash(node preview.ts mycelium-sparse.png '{\"mode\":\"mycelium\",\"cols\":220,\"seed\":777,\"modes\":{\"mycelium\":{\"inocula\":1,\"reach\":0.2,\"branching\":0,\"halo\":8}}}')",
+      "Bash(node preview.ts canopy.png '{\"mode\":\"canopy\"}')",
+      "Bash(node preview.ts canopy-max.png '{\"mode\":\"canopy\",\"cols\":220,\"modes\":{\"canopy\":{\"trees\":200}}}')",
+      "Bash(node preview.ts mycelium-tall.png '{\"mode\":\"mycelium\",\"aspect\":\"9:16\",\"cols\":220,\"seed\":777,\"modes\":{\"mycelium\":{\"inocula\":6,\"reach\":1,\"branching\":1,\"halo\":8}}}')",
+      "Bash(node sheet.ts sheet1.png '[ *)",
+      "Bash(node sheet.ts sheet2.png '[ *)",
+      "Bash(node sheet.ts sheet3.png '[ *)",
+      "Bash(node sheet.ts sheet4.png '[ *)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(npm run *)",
+      "Bash(npx vite *)",
+      "Bash(ls \"/Applications/Google Chrome.app/Contents/MacOS/\" 2>/dev/null; ls /Applications | grep -i -E \"chrome|chromium|brave|edge|arc\" )",
+      "Read(//Applications/**)",
+      "Bash(timeout 90 node drive.mjs)",
+      "Bash(node drive.mjs)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/lab/contours)",
+      "Read(//Users/didierchifan/.claude/skills/emil-animations/**)"
+    ]
+  }
+}
