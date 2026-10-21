@@ -39,7 +39,8 @@ export const timber: FieldMode = {
       const juvenile = 1 + 0.7 * Math.exp(-year / 6)
       const cycle = 1 + 0.35 * p.climate * Math.sin(year * 0.21 + leanDir)
       const weather = (rings() + rings() + rings() - 1.5) * 1.15
-      const drought = rings() < 0.07 * p.climate ? 0.35 : 1
+      // Eases into a drought ring as climate rises, rather than snapping.
+      const drought = 1 - 0.65 * Math.min(1, Math.max(0, (0.07 * p.climate - rings()) / 0.01))
       const w = spacing * Math.max(0.3, juvenile * cycle * (1 + p.climate * weather)) * drought
       starts.push(r)
       widths.push(w)

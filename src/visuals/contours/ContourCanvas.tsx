@@ -1,12 +1,13 @@
 import { useEffect, useRef, type ComponentProps } from 'react'
+import { isMoving } from './drift.ts'
 import { renderContours } from './render.ts'
 import type { ContourConfig } from './types.ts'
 
 interface ContourCanvasProps extends Omit<ComponentProps<'canvas'>, 'children'> {
   config: ContourConfig
-  /** performance.now() at which `config.phase` holds. Flow is measured from here. */
+  /** performance.now() at which the config holds exactly. Flow and drift are measured from here. */
   epoch?: number
-  /** Let `config.flow` move the contours. Off renders a still at `config.phase`. */
+  /** Let flow and drifting knobs move the picture. Off renders the config as a still. */
   animate?: boolean
 }
 
@@ -19,7 +20,7 @@ export function ContourCanvas({ config, epoch = 0, animate = true, style, ...pro
     const ctx = canvas?.getContext('2d')
     if (!canvas || !ctx) return
 
-    const moving = animate && config.flow !== 0
+    const moving = animate && isMoving(config)
     const draw = () => {
       const time = moving ? (performance.now() - epoch) / 1000 : 0
       renderContours(ctx, config, canvas.width, canvas.height, time)

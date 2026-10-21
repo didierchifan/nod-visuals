@@ -29,6 +29,7 @@ export const bracket: FieldMode = {
     const sinTilt = Math.sin(tilt)
 
     const items: {
+      layer: number
       x: number
       y: number
       dir: number
@@ -51,6 +52,7 @@ export const bracket: FieldMode = {
       const x = lineX + (Math.cos(ringDir) * 0.12 - lineX) * p.rosette
       const y = lineY + (Math.sin(ringDir) * 0.12 - lineY) * p.rosette
       items.push({
+        layer: lineY,
         x: x * cosTilt - y * sinTilt,
         y: x * sinTilt + y * cosTilt,
         dir: lineDir + wrapAngle(ringDir - lineDir) * p.rosette + tilt,
@@ -61,8 +63,9 @@ export const bracket: FieldMode = {
         p2: r[7] * TAU,
       })
     }
-    // Imbricate: each bracket overlaps the one above it, like scales.
-    items.sort((a, b) => a.y - b.y)
+    // Imbricate: each bracket overlaps the one above it, like scales. Ordered by
+    // the trunk layout so turning other knobs never reshuffles the stack.
+    items.sort((a, b) => a.layer - b.layer)
 
     return {
       sample(x, y, out) {

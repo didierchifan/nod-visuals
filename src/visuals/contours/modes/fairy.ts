@@ -13,7 +13,7 @@ export const fairy: FieldMode = {
     { key: 'colonies', label: 'Colonies', min: 1, max: MAX_COLONIES, step: 1, value: 5 },
     { key: 'scatter', label: 'Scatter', min: 0, max: 1, step: 0.01, value: 0.75 },
     { key: 'age', label: 'Age spread', min: 0, max: 1, step: 0.01, value: 0.5 },
-    { key: 'rotors', label: 'Rotors', min: 0, max: 1, step: 0.01, value: 0.25 },
+    { key: 'rotors', label: 'Rotors', min: 0, max: 1, step: 0.01, value: 0.25, still: true },
     { key: 'arms', label: 'Arms', min: 1, max: 4, step: 1, value: 1 },
     { key: 'patchy', label: 'Dead soil', min: 0, max: 0.8, step: 0.01, value: 0.15 },
   ],

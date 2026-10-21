@@ -24,7 +24,14 @@
       "Bash(timeout 90 node drive.mjs)",
       "Bash(node drive.mjs)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:5173/lab/contours)",
-      "Read(//Users/didierchifan/.claude/skills/emil-animations/**)"
+      "Read(//Users/didierchifan/.claude/skills/emil-animations/**)",
+      "Bash(node smooth.ts)",
+      "Bash(TEMPO=1 RANGE=1 SECONDS=6 node smooth.ts)",
+      "Bash(node total.ts)",
+      "Bash(node holdcheck.mjs)",
+      "Bash(sed -i '' 's/f <= 600/f <= 1800/; s/i % 150 === 0/i % 300 === 0/; s/reversals in 20s/reversals in 60s/' continuous.ts)",
+      "Bash(node continuous.ts)",
+      "Bash(node drive2.mjs)"
     ]
   }
 }

@@ -23,13 +23,19 @@ export const canopy: FieldMode = {
     const extentY = 1.15
     const pitch = Math.sqrt((4 * extentX * extentY) / Math.max(count, 1))
 
+    // Trees are placed at a fixed spread and only then sized, so variance,
+    // shyness and height grow and shrink crowns without moving any tree.
     const trees: { x: number; y: number; r: number; h: number }[] = []
+    const room: number[] = []
     for (let attempt = 0; attempt < count * 40 && trees.length < count; attempt++) {
       const x = (rand() * 2 - 1) * extentX
       const y = (rand() * 2 - 1) * extentY
-      const r = pitch * 0.62 * (1 - p.variance * 0.7 * rand())
-      const crowded = trees.some((t) => Math.hypot(t.x - x, t.y - y) < (t.r + r) * 0.8)
+      const size = rand()
+      const place = pitch * 0.62 * (1 - 0.35 * size)
+      const crowded = trees.some((t, i) => Math.hypot(t.x - x, t.y - y) < (room[i] + place) * 0.8)
       if (crowded) continue
+      const r = pitch * 0.62 * (1 - p.variance * 0.7 * size)
+      room.push(place)
       trees.push({ x, y, r: r * (1 - p.shyness * 0.4), h: r * p.height * (2 + rand()) })
     }
 

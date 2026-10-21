@@ -227,13 +227,89 @@
   border-top: 1px solid var(--lab-border);
 }
 
+.lab-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 24px;
+  margin-bottom: 12px;
+}
+
 .lab-section h2 {
-  margin: 0 0 12px;
+  margin: 0;
   color: var(--lab-muted);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.lab-drift {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--lab-border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--lab-muted);
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    scale 150ms ease-out;
+}
+
+.lab-drift:active {
+  scale: 0.97;
+}
+
+/* An unlit LED when off, a lit one when on. */
+.lab-drift-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 1px;
+  box-shadow: inset 0 0 0 1px var(--lab-muted);
+  transition: background-color 150ms ease;
+}
+
+.lab .lab-drift[aria-pressed='true'] {
+  border-color: color-mix(in oklab, var(--lab-accent) 50%, transparent);
+  background: color-mix(in oklab, var(--lab-accent) 14%, transparent);
+  color: var(--lab-accent);
+}
+
+.lab-drift[aria-pressed='true'] .lab-drift-dot {
+  background: var(--lab-accent);
+  box-shadow: none;
+  animation: lab-drift-pulse 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes lab-drift-pulse {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0.3;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lab-drift:hover {
+    background: var(--lab-raise);
+    color: var(--lab-text);
+  }
+}
+
+.lab-note {
+  margin: 12px 0 0;
+  color: var(--lab-faint);
+  font-size: 11px;
+  line-height: 1.5;
 }
 
 .lab-knobs {
@@ -370,6 +446,44 @@
   opacity: 0.35;
 }
 
+.knob[data-drifting] .knob-value {
+  color: var(--lab-accent);
+}
+
+.knob-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.knob-hold {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 0 4px;
+  color: var(--lab-faint);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+
+.knob-hold input {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  margin: 0;
+  accent-color: var(--lab-accent);
+  cursor: pointer;
+}
+
+.knob-hold:has(input:checked) {
+  color: var(--lab-muted);
+}
+
 /* Actions */
 
 .lab-actions {
@@ -418,6 +532,20 @@
   font-size: 12px;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lab *,
+  .lab *::before {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .lab-drift:active,
+  .lab-btn:active {
+    scale: none;
+    transform: none;
+  }
 }
 
 @media (max-width: 820px) {

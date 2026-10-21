@@ -72,7 +72,32 @@ export const PALETTES: Record<PaletteId, Palette> = {
 
 export const PALETTE_IDS = Object.keys(PALETTES) as PaletteId[]
 
-export function rgb(hex: string): [number, number, number] {
+export type RGB = [number, number, number]
+
+export function rgb(hex: string): RGB {
   const n = parseInt(hex.slice(1), 16)
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+export const css = ([r, g, b]: RGB) => `rgb(${r} ${g} ${b})`
+
+const byte = (v: number) => Math.round(Math.min(255, Math.max(0, v)))
+
+/** The hue-rotate matrix from the CSS filter spec: turns hue, keeps luminance. */
+export function turn([r, g, b]: RGB, degrees: number): RGB {
+  if (!degrees) return [r, g, b]
+  const a = (degrees * Math.PI) / 180
+  const c = Math.cos(a)
+  const s = Math.sin(a)
+  return [
+    byte(r * (0.213 + c * 0.787 - s * 0.213) + g * (0.715 - c * 0.715 - s * 0.715) + b * (0.072 - c * 0.072 + s * 0.928)),
+    byte(r * (0.213 - c * 0.213 + s * 0.143) + g * (0.715 + c * 0.285 + s * 0.14) + b * (0.072 - c * 0.072 - s * 0.283)),
+    byte(r * (0.213 - c * 0.213 - s * 0.787) + g * (0.715 - c * 0.715 + s * 0.715) + b * (0.072 + c * 0.928 + s * 0.072)),
+  ]
+}
+
+/** The palette's three colours after the hue knob. */
+export function colorsOf(palette: PaletteId, hue: number) {
+  const p = PALETTES[palette]
+  return { bg: turn(rgb(p.bg), hue), line: turn(rgb(p.line), hue), accent: turn(rgb(p.accent), hue) }
 }

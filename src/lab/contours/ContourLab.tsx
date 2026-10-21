@@ -3,25 +3,29 @@ import { ContourCanvas } from '../../visuals/contours/ContourCanvas.tsx'
 import {
   ASPECTS,
   DEFAULT_CONFIG,
+  drifts,
+  fieldKnob,
   GLOBAL_PARAMS,
   normalizeConfig,
   seedLabel,
   TINT_STYLES,
   type Section,
 } from '../../visuals/contours/config.ts'
+import { drifted, isDrifting, syncMotion } from '../../visuals/contours/drift.ts'
 import { MODE_IDS, MODES } from '../../visuals/contours/modes/index.ts'
-import { PALETTE_IDS, PALETTES } from '../../visuals/contours/palettes.ts'
+import { colorsOf, css, PALETTE_IDS, PALETTES } from '../../visuals/contours/palettes.ts'
 import { renderToCanvas } from '../../visuals/contours/render.ts'
-import type { AspectId, ContourConfig, GlobalKey } from '../../visuals/contours/types.ts'
+import type { AspectId, ContourConfig, DriftGroup, GlobalKey } from '../../visuals/contours/types.ts'
 import { Knob } from './Knob.tsx'
-import { bake, listSaved, loadStored, randomSeed, rebase, saveConfig, store, type SavedConfig } from './lab.ts'
+import { listSaved, loadStored, randomSeed, rebase, saveConfig, snapshot, store, type SavedConfig } from './lab.ts'
 import './lab.css'
 
-const SECTIONS: { id: Section; title: string }[] = [
-  { id: 'light', title: 'Light' },
-  { id: 'contours', title: 'Contours' },
-  { id: 'grid', title: 'Grid' },
-  { id: 'soil', title: 'Soil' },
+const SECTIONS: { id: Section; title: string; drift?: DriftGroup }[] = [
+  { id: 'light', title: 'Light', drift: 'light' },
+  { id: 'contours', title: 'Contours', drift: 'contours' },
+  { id: 'grid', title: 'Grid', drift: 'grid' },
+  { id: 'soil', title: 'Soil', drift: 'soil' },
+  { id: 'motion', title: 'Motion' },
 ]
 
 const ASPECT_IDS = Object.keys(ASPECTS) as AspectId[]
@@ -51,17 +55,35 @@ function Segmented<T extends string>({
   )
 }
 
+function SectionHead({ title, active, onToggle }: { title: string; active?: boolean; onToggle?(): void }) {
+  return (
+    <div className="lab-section-head">
+      <h2>{title}</h2>
+      {onToggle && (
+        <button type="button" className="lab-drift" aria-pressed={active} onClick={onToggle}>
+          <span className="lab-drift-dot" aria-hidden="true" />
+          Randomly animate
+        </button>
+      )}
+    </div>
+  )
+}
+
 export default function ContourLab() {
-  const [config, setConfig] = useState<ContourConfig>(() => loadStored() ?? DEFAULT_CONFIG)
+  const [config, setConfig] = useState<ContourConfig>(() => syncMotion(loadStored() ?? DEFAULT_CONFIG))
   const [epoch, setEpoch] = useState(0)
+  const [clock, setClock] = useState(0)
   const [past, setPast] = useState<ContourConfig[]>([])
   const [future, setFuture] = useState<ContourConfig[]>([])
   const [saved, setSaved] = useState<SavedConfig[]>([])
   const [notice, setNotice] = useState('')
   const stage = useRef<HTMLDivElement>(null)
 
+  // What the knobs show: the config as the canvas is drawing it right now.
+  const shown = drifted(config, Math.max(0, (clock - epoch) / 1000))
   const mode = MODES[config.mode]
   const palette = PALETTES[config.palette]
+  const accent = css(colorsOf(shown.palette, shown.hue).accent)
 
   useEffect(() => store(config), [config])
 
@@ -75,48 +97,76 @@ export default function ContourLab() {
     return () => clearTimeout(timer)
   }, [notice])
 
-  const snapshot = () => bake(config, epoch, performance.now())
-  const settingsJson = () => JSON.stringify(snapshot(), null, 2)
+  // Keeps the panel in step with the canvas while knobs drift.
+  useEffect(() => {
+    if (!isDrifting(config)) return
+    let frame = requestAnimationFrame(function tick(now) {
+      setClock(now)
+      frame = requestAnimationFrame(tick)
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [config])
 
-  const apply = (next: ContourConfig) => {
-    setPast((p) => [...p.slice(-49), config])
-    setFuture([])
-    setConfig(next)
-    setEpoch(performance.now())
+  const now = () => snapshot(config, epoch)
+  const settingsJson = () => JSON.stringify(now(), null, 2)
+
+  /**
+   * Every edit starts from the frame on screen, so nothing jumps while things
+   * move. `restart` is a knob the user just set by hand: it travels on from there.
+   */
+  const update = (change: (c: ContourConfig) => ContourConfig, restart?: string) => {
+    const next = rebase(config, epoch)
+    const changed = change(next.config)
+    if (restart && changed.motion[restart]) {
+      changed.motion = Object.fromEntries(Object.entries(changed.motion).filter(([id]) => id !== restart))
+    }
+    setConfig(syncMotion(changed))
+    setEpoch(next.epoch)
   }
 
-  const regenerate = () => apply({ ...snapshot(), seed: randomSeed() })
+  const apply = (next: ContourConfig) => {
+    const current = rebase(config, epoch)
+    setPast((p) => [...p.slice(-49), current.config])
+    setFuture([])
+    setConfig(syncMotion(next))
+    setEpoch(current.epoch)
+  }
+
+  const regenerate = () => apply({ ...now(), seed: randomSeed() })
 
   const back = () => {
     const previous = past.at(-1)
     if (!previous) return
+    const current = rebase(config, epoch)
     setPast((p) => p.slice(0, -1))
-    setFuture((f) => [config, ...f])
+    setFuture((f) => [current.config, ...f])
     setConfig(previous)
-    setEpoch(performance.now())
+    setEpoch(current.epoch)
   }
 
   const forward = () => {
     const next = future[0]
     if (!next) return
+    const current = rebase(config, epoch)
     setFuture((f) => f.slice(1))
-    setPast((p) => [...p, config])
+    setPast((p) => [...p, current.config])
     setConfig(next)
-    setEpoch(performance.now())
+    setEpoch(current.epoch)
   }
 
-  const setGlobal = (key: GlobalKey, value: number) => {
-    if (key === 'flow') {
-      const next = rebase(config, epoch)
-      setConfig({ ...next.config, flow: value })
-      setEpoch(next.epoch)
-    } else {
-      setConfig((c) => ({ ...c, [key]: value }))
-    }
-  }
+  const setGlobal = (key: GlobalKey, value: number) => update((c) => ({ ...c, [key]: value }), key)
 
   const setParam = (key: string, value: number) =>
-    setConfig((c) => ({ ...c, modes: { ...c.modes, [c.mode]: { ...c.modes[c.mode], [key]: value } } }))
+    update(
+      (c) => ({ ...c, modes: { ...c.modes, [c.mode]: { ...c.modes[c.mode], [key]: value } } }),
+      fieldKnob(config.mode, key),
+    )
+
+  const toggleDrift = (group: DriftGroup) =>
+    update((c) => ({ ...c, drift: { ...c.drift, [group]: !c.drift[group] } }))
+
+  const setHeld = (id: string, held: boolean) =>
+    update((c) => ({ ...c, held: held ? [...c.held.filter((h) => h !== id), id] : c.held.filter((h) => h !== id) }))
 
   const copy = async () => {
     try {
@@ -128,7 +178,7 @@ export default function ContourLab() {
   }
 
   const save = async () => {
-    const keeper = snapshot()
+    const keeper = now()
     const json = JSON.stringify(keeper, null, 2)
     const copied = await navigator.clipboard.writeText(json).then(
       () => true,
@@ -144,7 +194,7 @@ export default function ContourLab() {
   }
 
   const exportPng = () => {
-    const keeper = snapshot()
+    const keeper = now()
     renderToCanvas(keeper).toBlob((blob) => {
       if (!blob) return
       const url = URL.createObjectURL(blob)
@@ -209,7 +259,7 @@ export default function ContourLab() {
   })
 
   return (
-    <div className="lab" style={{ '--lab-accent': palette.accent } as CSSProperties}>
+    <div className="lab" style={{ '--lab-accent': accent } as CSSProperties}>
       <div className="lab-stage" ref={stage}>
         <header className="lab-bar">
           <div className="lab-id">
@@ -274,7 +324,7 @@ export default function ContourLab() {
                 type="button"
                 className="lab-mode"
                 aria-pressed={id === config.mode}
-                onClick={() => setConfig((c) => ({ ...c, mode: id }))}
+                onClick={() => update((c) => ({ ...c, mode: id }))}
               >
                 {MODES[id].name}
                 <small>{MODES[id].latin}</small>
@@ -284,28 +334,39 @@ export default function ContourLab() {
           <p className="lab-blurb">{mode.blurb}</p>
 
           <section className="lab-section">
-            <h2>{mode.name}</h2>
+            <SectionHead title={mode.name} active={config.drift.field} onToggle={() => toggleDrift('field')} />
             <div className="lab-knobs">
-              {mode.params.map((spec) => (
-                <Knob
-                  key={`${mode.id}.${spec.key}`}
-                  label={spec.label}
-                  value={config.modes[mode.id][spec.key]}
-                  min={spec.min}
-                  max={spec.max}
-                  step={spec.step}
-                  defaultValue={spec.value}
-                  dial={spec.dial}
-                  unit={spec.unit}
-                  onChange={(v) => setParam(spec.key, v)}
-                />
-              ))}
+              {mode.params.map((spec) => {
+                const id = fieldKnob(mode.id, spec.key)
+                const held = config.held.includes(id)
+                return (
+                  <Knob
+                    key={id}
+                    label={spec.label}
+                    value={shown.modes[mode.id][spec.key]}
+                    min={spec.min}
+                    max={spec.max}
+                    step={spec.step}
+                    defaultValue={spec.value}
+                    dial={spec.dial}
+                    unit={spec.unit}
+                    drifting={config.drift.field && drifts(spec) && !held}
+                    held={held}
+                    onHeldChange={drifts(spec) ? (h) => setHeld(id, h) : undefined}
+                    onChange={(v) => setParam(spec.key, v)}
+                  />
+                )
+              })}
             </div>
           </section>
 
           {SECTIONS.map((section) => (
             <section key={section.id} className="lab-section">
-              <h2>{section.title}</h2>
+              <SectionHead
+                title={section.title}
+                active={section.drift && config.drift[section.drift]}
+                onToggle={section.drift && (() => toggleDrift(section.drift!))}
+              />
               {section.id === 'light' && (
                 <div className="lab-field">
                   <span className="lab-field-label">
@@ -321,7 +382,7 @@ export default function ContourLab() {
                         aria-label={PALETTES[id].name}
                         title={PALETTES[id].name}
                         style={{ background: PALETTES[id].bg }}
-                        onClick={() => setConfig((c) => ({ ...c, palette: id }))}
+                        onClick={() => update((c) => ({ ...c, palette: id }))}
                       >
                         <i style={{ background: PALETTES[id].line }} />
                         <i style={{ background: PALETTES[id].accent }} />
@@ -335,7 +396,7 @@ export default function ContourLab() {
                   label="Aspect"
                   options={ASPECT_IDS}
                   value={config.aspect}
-                  onChange={(aspect) => setConfig((c) => ({ ...c, aspect }))}
+                  onChange={(aspect) => update((c) => ({ ...c, aspect }))}
                 />
               )}
               <div className="lab-knobs">
@@ -343,7 +404,7 @@ export default function ContourLab() {
                   <Knob
                     key={spec.key}
                     label={spec.label}
-                    value={config[spec.key]}
+                    value={shown[spec.key]}
                     min={spec.min}
                     max={spec.max}
                     step={spec.step}
@@ -351,6 +412,9 @@ export default function ContourLab() {
                     dial={spec.dial}
                     unit={spec.unit}
                     idle={mode.ignores?.includes(spec.key)}
+                    drifting={!!section.drift && config.drift[section.drift] && drifts(spec) && !config.held.includes(spec.key)}
+                    held={config.held.includes(spec.key)}
+                    onHeldChange={section.drift && drifts(spec) ? (h) => setHeld(spec.key, h) : undefined}
                     onChange={(v) => setGlobal(spec.key, v)}
                   />
                 ))}
@@ -360,8 +424,11 @@ export default function ContourLab() {
                   label="Tint"
                   options={TINT_STYLES}
                   value={config.tintStyle}
-                  onChange={(tintStyle) => setConfig((c) => ({ ...c, tintStyle }))}
+                  onChange={(tintStyle) => update((c) => ({ ...c, tintStyle }))}
                 />
+              )}
+              {section.id === 'motion' && (
+                <p className="lab-note">Tempo and Range set how fast and how far every randomly animated section wanders.</p>
               )}
             </section>
           ))}

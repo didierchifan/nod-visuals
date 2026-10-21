@@ -1,4 +1,5 @@
 import { normalizeConfig } from '../../visuals/contours/config.ts'
+import { freeze } from '../../visuals/contours/drift.ts'
 import type { ContourConfig } from '../../visuals/contours/types.ts'
 
 /** Served by the dev-only plugin in vite.config.ts. */
@@ -14,17 +15,15 @@ export function randomSeed() {
   return crypto.getRandomValues(new Uint32Array(1))[0]
 }
 
-/** Freezes a flowing config at the phase it shows right now. */
-export function bake(config: ContourConfig, epoch: number, now: number): ContourConfig {
-  if (config.flow === 0) return config
-  const phase = config.phase + (config.flow * (now - epoch)) / 1000
-  return { ...config, phase: Number((phase - Math.floor(phase)).toFixed(4)) }
+/** The config exactly as it looks right now, flow and drift baked in. */
+export function snapshot(config: ContourConfig, epoch: number) {
+  return freeze(config, Math.max(0, (performance.now() - epoch) / 1000))
 }
 
-/** Bakes the current phase and restarts the flow clock from now, so changing flow never jumps. */
+/** Bakes the current moment and restarts the clock from it, so no change ever makes the picture jump. */
 export function rebase(config: ContourConfig, epoch: number) {
   const now = performance.now()
-  return { config: bake(config, epoch, now), epoch: now }
+  return { config: freeze(config, Math.max(0, (now - epoch) / 1000)), epoch: now }
 }
 
 export async function listSaved(): Promise<SavedConfig[]> {

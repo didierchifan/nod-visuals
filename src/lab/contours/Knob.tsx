@@ -12,6 +12,12 @@ interface KnobProps {
   unit?: string
   /** The current field ignores this knob. */
   idle?: boolean
+  /** Being turned by Randomly animate. */
+  drifting?: boolean
+  /** Kept still by its DNA (do not animate) box. */
+  held?: boolean
+  /** Shows the DNA box; leave out for knobs that never animate. */
+  onHeldChange?(held: boolean): void
   onChange(value: number): void
 }
 
@@ -37,7 +43,21 @@ function decimals(step: number) {
 }
 
 /** Drag up or right to turn. Shift for fine, double-click to reset, arrows when focused. */
-export function Knob({ label, value, min, max, step, defaultValue, dial, unit, idle, onChange }: KnobProps) {
+export function Knob({
+  label,
+  value,
+  min,
+  max,
+  step,
+  defaultValue,
+  dial,
+  unit,
+  idle,
+  drifting,
+  held,
+  onHeldChange,
+  onChange,
+}: KnobProps) {
   const drag = useRef<{ x: number; y: number; raw: number } | null>(null)
   const span = max - min
   const places = decimals(step)
@@ -93,7 +113,7 @@ export function Knob({ label, value, min, max, step, defaultValue, dial, unit, i
   const [qx, qy] = polar(angle, R - 11)
   const shown = `${value.toFixed(places)}${unit ?? ''}`
 
-  return (
+  const dialEl = (
     <div
       className="knob"
       role="slider"
@@ -104,6 +124,7 @@ export function Knob({ label, value, min, max, step, defaultValue, dial, unit, i
       aria-valuenow={value}
       aria-valuetext={shown}
       data-idle={idle || undefined}
+      data-drifting={drifting || undefined}
       title={idle ? `${label} has no effect on this field` : 'Drag to turn · Shift for fine · Double-click to reset'}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -123,6 +144,22 @@ export function Knob({ label, value, min, max, step, defaultValue, dial, unit, i
       </svg>
       <span className="knob-value">{shown}</span>
       <span className="knob-label">{label}</span>
+    </div>
+  )
+
+  if (!onHeldChange) return dialEl
+  return (
+    <div className="knob-cell">
+      {dialEl}
+      <label className="knob-hold" title="Do not animate">
+        <input
+          type="checkbox"
+          checked={held}
+          aria-label={`Do not animate ${label}`}
+          onChange={(e) => onHeldChange(e.target.checked)}
+        />
+        DNA
+      </label>
     </div>
   )
 }

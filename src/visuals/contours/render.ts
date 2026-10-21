@@ -1,6 +1,7 @@
 import { fieldKey, gridSize } from './config.ts'
+import { drifted } from './drift.ts'
 import { MODES, modeDefaults } from './modes/index.ts'
-import { PALETTES, rgb } from './palettes.ts'
+import { colorsOf, css } from './palettes.ts'
 import { createNoise, hash2, mulberry32 } from './random.ts'
 import type { ContourConfig, Sample } from './types.ts'
 
@@ -42,8 +43,8 @@ export function sampleField(config: ContourConfig): FieldGrid {
 
   const s: Sample = { v: 0, region: 0, detail: 1, ink: 0 }
   const at = (i: number, j: number) => {
-    let x = -halfWidth + i * cell
-    let y = -1 + j * cell
+    let x = (-halfWidth + i * cell) / config.zoom + config.panX
+    let y = (-1 + j * cell) / config.zoom + config.panY
     if (warp > 0) {
       const wx = soil.fbm(x * scale + 3.1, y * scale - 1.7, 3)
       const wy = soil.fbm(x * scale - 6.3, y * scale + 4.9, 3)
@@ -126,13 +127,13 @@ const cover = (distance: number, half: number, feather: number) =>
  */
 export function shade(field: FieldGrid, config: ContourConfig, time = 0): Shaded {
   const { cols, rows, values, region, detail, ink, period, outline, spacing } = field
-  const palette = PALETTES[config.palette]
-  const [bgR, bgG, bgB] = rgb(palette.bg)
-  const [lnR, lnG, lnB] = rgb(palette.line)
-  const [acR, acG, acB] = rgb(palette.accent)
+  const colors = colorsOf(config.palette, config.hue)
+  const [bgR, bgG, bgB] = colors.bg
+  const [lnR, lnG, lnB] = colors.line
+  const [acR, acG, acB] = colors.accent
 
-  const phase = config.phase + config.flow * time
   const every = Math.max(1, Math.round(config.indexEvery))
+  const phase = config.phase * every + config.flow * time
   // Lines never grow wide enough to swallow the gap to their neighbours.
   const half = Math.min(config.weight / 2, config.interval * 0.3)
   const halfIndex = Math.min((config.weight * config.indexWeight) / 2, config.interval * 0.4)
@@ -204,7 +205,7 @@ export function shade(field: FieldGrid, config: ContourConfig, time = 0): Shaded
     }
   }
 
-  return { cols, rows, cells, emit, bg: palette.bg }
+  return { cols, rows, cells, emit, bg: css(colors.bg) }
 }
 
 const scratch = new Map<string, CanvasRenderingContext2D>()
@@ -242,11 +243,20 @@ export function paint(ctx: CanvasRenderingContext2D, shaded: Shaded, config: Con
   ctx.imageSmoothingEnabled = false
   ctx.drawImage(cells.canvas, ox, oy, gridW, gridH)
 
-  const gap = Math.round(cellPx * config.gap)
-  if (gap > 0 && gap < cellPx) {
-    const lead = Math.floor(gap / 2)
-    for (let i = 0; i <= cols; i++) ctx.fillRect(ox + i * cellPx - lead, oy, gap, gridH)
-    for (let j = 0; j <= rows; j++) ctx.fillRect(ox, oy + j * cellPx - lead, gridW, gap)
+  // Whole pixels of gap, plus one partly covered pixel, so the pitch can change smoothly.
+  const gap = cellPx * config.gap
+  const solid = Math.floor(gap)
+  const soft = gap - solid
+  const lead = Math.floor(solid / 2)
+  if (solid > 0) {
+    for (let i = 0; i <= cols; i++) ctx.fillRect(ox + i * cellPx - lead, oy, solid, gridH)
+    for (let j = 0; j <= rows; j++) ctx.fillRect(ox, oy + j * cellPx - lead, gridW, solid)
+  }
+  if (soft > 0.02) {
+    ctx.globalAlpha = soft
+    for (let i = 0; i <= cols; i++) ctx.fillRect(ox + i * cellPx - lead + solid, oy, 1, gridH)
+    for (let j = 0; j <= rows; j++) ctx.fillRect(ox, oy + j * cellPx - lead + solid, gridW, 1)
+    ctx.globalAlpha = 1
   }
 
   if (config.glow > 0) {
@@ -277,6 +287,7 @@ export function paint(ctx: CanvasRenderingContext2D, shaded: Shaded, config: Con
   ctx.restore()
 }
 
+/** The frame `time` seconds after the config's own moment: drifting knobs moved, contours flowed. */
 export function renderContours(
   ctx: CanvasRenderingContext2D,
   config: ContourConfig,
@@ -284,7 +295,8 @@ export function renderContours(
   height: number,
   time = 0,
 ) {
-  paint(ctx, shade(sampleField(config), config, time), config, width, height)
+  const live = drifted(config, time)
+  paint(ctx, shade(sampleField(live), live, time), live, width, height)
 }
 
 /** A canvas exactly the size of the grid, its long side close to `longSide` pixels. */
