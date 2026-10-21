@@ -1,0 +1,108 @@
+/* The fluid lab wears the contour lab's shell from lab.css; these are the pieces only it has. */
+
+.fluid .lab-canvas {
+  cursor: default;
+}
+
+/* Only the water itself orbits; the letterbox around it is dead space. */
+.fluid .lab-canvas canvas {
+  cursor: grab;
+}
+
+.fluid .lab-canvas canvas:active {
+  cursor: grabbing;
+}
+
+/* The water's background is black, so a hairline shows where the picture ends. Not on the projector. */
+.fluid .lab-stage:not(:fullscreen) .lab-canvas canvas {
+  outline: 1px solid var(--lab-border);
+}
+
+.fluid .lab-stage:fullscreen {
+  background: #000;
+}
+
+/* Straight under the tabs, so no rule of its own above it. */
+.fluid .lab-scroll > .lab-section:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.fluid-colors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* Side by side, so not spaced the way stacked fields are. */
+.fluid .fluid-colors .lab-field {
+  margin-top: 0;
+}
+
+.fluid-colors + .lab-knobs {
+  margin-top: 14px;
+}
+
+.fluid-color {
+  display: flex;
+  gap: 6px;
+}
+
+.fluid-color input[type='color'] {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid var(--lab-border);
+  border-radius: 6px;
+  background: none;
+  cursor: pointer;
+}
+
+.fluid-color input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.fluid-color input[type='color']::-webkit-color-swatch {
+  border: 0;
+  border-radius: 5px;
+}
+
+.fluid-color input[type='color']::-moz-color-swatch {
+  border: 0;
+  border-radius: 5px;
+}
+
+.fluid-hex {
+  flex: 1;
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid var(--lab-border);
+  border-radius: 6px;
+  background: var(--lab-raise);
+  color: var(--lab-text);
+  font: 12px ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+.fluid-hex:hover {
+  background: var(--lab-raise-hover);
+}
+
+/* Below 16px, iOS zooms the page in when the field is focused. */
+@media (pointer: coarse) {
+  .fluid-hex {
+    font-size: 16px;
+  }
+}
+
+.fluid-undo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--lab-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { flushSync } from 'react-dom'
 import { ContourCanvas } from '../../visuals/contours/ContourCanvas.tsx'
 import {
   ASPECTS,
@@ -6,6 +7,7 @@ import {
   drifts,
   fieldKnob,
   GLOBAL_PARAMS,
+  gridSize,
   normalizeConfig,
   seedLabel,
   TINT_STYLES,
@@ -13,11 +15,31 @@ import {
 } from '../../visuals/contours/config.ts'
 import { drifted, isDrifting, syncMotion } from '../../visuals/contours/drift.ts'
 import { MODE_IDS, MODES } from '../../visuals/contours/modes/index.ts'
-import { colorsOf, css, PALETTE_IDS, PALETTES } from '../../visuals/contours/palettes.ts'
-import { renderToCanvas } from '../../visuals/contours/render.ts'
+import { colorsOf, css, hex, PALETTE_IDS, PALETTES } from '../../visuals/contours/palettes.ts'
+import { frameRect, renderToCanvas } from '../../visuals/contours/render.ts'
 import type { AspectId, ContourConfig, DriftGroup, GlobalKey } from '../../visuals/contours/types.ts'
+import type { FrameOf } from '../../visuals/frame.ts'
+import { createText, drawTexts, loadFonts, type TextLayer } from '../../visuals/text/text.ts'
 import { Knob } from './Knob.tsx'
-import { listSaved, loadStored, randomSeed, rebase, saveConfig, snapshot, store, type SavedConfig } from './lab.ts'
+import {
+  listSaved,
+  loadLogo,
+  loadStored,
+  loadTexts,
+  randomSeed,
+  rebase,
+  saveConfig,
+  snapshot,
+  store,
+  storeLogo,
+  storeTexts,
+  type SavedConfig,
+} from './lab.ts'
+import { Logo } from './Logo.tsx'
+import { LogoPanel } from './LogoPanel.tsx'
+import { Segmented } from './Segmented.tsx'
+import { TextOverlay } from './TextOverlay.tsx'
+import { TextPanel } from './TextPanel.tsx'
 import './lab.css'
 
 const SECTIONS: { id: Section; title: string; drift?: DriftGroup }[] = [
@@ -30,30 +52,31 @@ const SECTIONS: { id: Section; title: string; drift?: DriftGroup }[] = [
 
 const ASPECT_IDS = Object.keys(ASPECTS) as AspectId[]
 
-function Segmented<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string
-  options: readonly T[]
-  value: T
-  onChange(value: T): void
-}) {
-  return (
-    <div className="lab-field">
-      <span className="lab-field-label">{label}</span>
-      <div className="lab-seg" role="group" aria-label={label}>
-        {options.map((option) => (
-          <button key={option} type="button" aria-pressed={option === value} onClick={() => onChange(option)}>
-            {option}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
+/** Arrow keys move a selected text this many cells. */
+const NUDGES: Record<string, [number, number]> = {
+  ArrowLeft: [-1, 0],
+  ArrowRight: [1, 0],
+  ArrowUp: [0, -1],
+  ArrowDown: [0, 1],
 }
+
+const unit = (v: number) => Math.min(1, Math.max(0, v))
+
+/** The palette's line and accent as `config` shows them, for text to wear. */
+function textColorsOf(config: ContourConfig) {
+  const { line, accent } = colorsOf(config.palette, config.hue)
+  return { line: hex(line), accent: hex(accent) }
+}
+
+/** The grid's own box, rounded the way ContourCanvas sizes its backing store so it lands on the grid's pixels. */
+const gridFrame =
+  (config: ContourConfig): FrameOf =>
+  (width, height) => {
+    const dpr = window.devicePixelRatio || 1
+    const { cols, rows } = gridSize(config)
+    const grid = frameRect(cols, rows, Math.max(1, Math.round(width * dpr)), Math.max(1, Math.round(height * dpr)))
+    return { left: grid.x / dpr, top: grid.y / dpr, width: grid.width / dpr, height: grid.height / dpr }
+  }
 
 function SectionHead({ title, active, onToggle }: { title: string; active?: boolean; onToggle?(): void }) {
   return (
@@ -77,15 +100,25 @@ export default function ContourLab() {
   const [future, setFuture] = useState<ContourConfig[]>([])
   const [saved, setSaved] = useState<SavedConfig[]>([])
   const [notice, setNotice] = useState('')
+  const [logo, setLogo] = useState(loadLogo)
+  const [texts, setTexts] = useState<TextLayer[]>(loadTexts)
+  const [selected, setSelected] = useState<string | null>(null)
+  const [tab, setTab] = useState<'contours' | 'text' | 'logo'>('contours')
   const stage = useRef<HTMLDivElement>(null)
+  const textInput = useRef<HTMLTextAreaElement>(null)
 
   // What the knobs show: the config as the canvas is drawing it right now.
   const shown = drifted(config, Math.max(0, (clock - epoch) / 1000))
   const mode = MODES[config.mode]
   const palette = PALETTES[config.palette]
   const accent = css(colorsOf(shown.palette, shown.hue).accent)
+  const selectedText = texts.find((t) => t.id === selected)
 
   useEffect(() => store(config), [config])
+
+  useEffect(() => storeLogo(logo), [logo])
+
+  useEffect(() => storeTexts(texts), [texts])
 
   useEffect(() => {
     listSaved().then(setSaved)
@@ -168,6 +201,47 @@ export default function ContourLab() {
   const setHeld = (id: string, held: boolean) =>
     update((c) => ({ ...c, held: held ? [...c.held.filter((h) => h !== id), id] : c.held.filter((h) => h !== id) }))
 
+  const editText = (id: string, change: Partial<TextLayer>) =>
+    setTexts((ts) => ts.map((t) => (t.id === id ? { ...t, ...change } : t)))
+
+  const select = (id: string | null) => {
+    setSelected(id)
+    if (id) setTab('text')
+    // An emptied text has nothing left to click, so it goes once it is let go.
+    setTexts((ts) => {
+      const kept = ts.filter((t) => t.id === id || t.content.trim())
+      return kept.length === ts.length ? ts : kept
+    })
+  }
+
+  /** Puts the cursor in the selected text's words: all of them selected, or after the last. */
+  const focusWords = (all: boolean) => {
+    const input = textInput.current
+    if (!input) return
+    input.focus()
+    if (all) input.select()
+    else input.setSelectionRange(input.value.length, input.value.length)
+  }
+
+  const addText = () => {
+    const text = createText(selectedText ?? texts.at(-1))
+    flushSync(() => {
+      setTexts((ts) => [...ts, text])
+      select(text.id)
+    })
+    focusWords(true)
+  }
+
+  const removeText = () => {
+    setTexts((ts) => ts.filter((t) => t.id !== selected))
+    setSelected(null)
+  }
+
+  const nudge = (text: TextLayer, [dx, dy]: [number, number]) => {
+    const { cols, rows } = gridSize(config)
+    editText(text.id, { x: unit(text.x + dx / cols), y: unit(text.y + dy / rows) })
+  }
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(settingsJson())
@@ -193,9 +267,14 @@ export default function ContourLab() {
     }
   }
 
-  const exportPng = () => {
+  const exportPng = async () => {
     const keeper = now()
-    renderToCanvas(keeper).toBlob((blob) => {
+    const canvas = renderToCanvas(keeper)
+    if (texts.length) {
+      await loadFonts(texts)
+      drawTexts(canvas.getContext('2d')!, texts, textColorsOf(keeper), canvas.width, canvas.height)
+    }
+    canvas.toBlob((blob) => {
       if (!blob) return
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
@@ -217,7 +296,16 @@ export default function ContourLab() {
 
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey || isControl(e.target)) return
-      if (e.key === 'f') toggleFullscreen()
+      // A selected text takes the arrows, a cell at a time or ten with Shift, instead of history.
+      if (selectedText && e.key in NUDGES) {
+        const [dx, dy] = NUDGES[e.key]
+        const by = e.shiftKey ? 10 : 1
+        nudge(selectedText, [dx * by, dy * by])
+      } else if (selectedText && (e.key === 'Backspace' || e.key === 'Delete')) removeText()
+      else if (selectedText && e.key === 'Escape') select(null)
+      else if (e.key === 'f') toggleFullscreen()
+      else if (e.key === 'l') setLogo((l) => ({ ...l, shown: !l.shown }))
+      else if (e.key === 't') addText()
       else if (e.key === ' ' || e.key === 'n') regenerate()
       else if (e.key === 'ArrowLeft') back()
       else if (e.key === 'ArrowRight') forward()
@@ -232,6 +320,8 @@ export default function ContourLab() {
       setNotice(`Copied settings for seed ${seedLabel(config.seed)}`)
     }
     const onPaste = (e: ClipboardEvent) => {
+      // Pasting into a text's words is just typing.
+      if (e.target instanceof HTMLElement && e.target.closest('textarea, input[type="text"]')) return
       let parsed: unknown = null
       try {
         parsed = JSON.parse(e.clipboardData?.getData('text/plain') ?? '')
@@ -267,7 +357,15 @@ export default function ContourLab() {
             <span className="lab-id-seed">seed {seedLabel(config.seed)}</span>
           </div>
           <p className="lab-hint">
-            Click the canvas for a new one <span>· ← → history · F fullscreen · ⌘C ⌘V settings</span>
+            {selectedText ? (
+              <>
+                Drag the text anywhere <span>· arrows nudge a cell · ⌫ delete · Esc or click away to let go</span>
+              </>
+            ) : (
+              <>
+                Click the canvas for a new one <span>· ← → history · F fullscreen · L logo · T text · ⌘C ⌘V settings</span>
+              </>
+            )}
           </p>
           <div className="lab-bar-actions">
             <button type="button" className="lab-icon" onClick={back} disabled={!past.length} aria-label="Previous composition">
@@ -280,6 +378,11 @@ export default function ContourLab() {
                 <path d="m6 3 5 5-5 5" />
               </svg>
             </button>
+            <button type="button" className="lab-icon" onClick={addText} aria-label="Add text" title="Add text">
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M3.5 4V3h9v1M8 3v10M6 13h4" />
+              </svg>
+            </button>
             <button type="button" className="lab-icon" onClick={toggleFullscreen} aria-label="Fullscreen">
               <svg viewBox="0 0 16 16" aria-hidden="true">
                 <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
@@ -289,7 +392,30 @@ export default function ContourLab() {
         </header>
 
         <div className="lab-canvas">
-          <ContourCanvas config={config} epoch={epoch} onClick={regenerate} />
+          {/* With a text selected, the first click away only lets it go. */}
+          <ContourCanvas config={config} epoch={epoch} onClick={selectedText ? () => select(null) : regenerate} />
+          {logo.shown && (
+            <Logo
+              frameOf={gridFrame(config)}
+              placement={logo}
+              color={logo.color}
+              colors={textColorsOf(shown)}
+              onSelect={() => {
+                select(null)
+                setTab('logo')
+              }}
+              onChange={(placement) => setLogo((l) => ({ ...l, ...placement }))}
+            />
+          )}
+          <TextOverlay
+            frameOf={gridFrame(config)}
+            texts={texts}
+            colors={textColorsOf(shown)}
+            selected={selected}
+            onSelect={select}
+            onMove={(id, x, y) => editText(id, { x, y })}
+            onEdit={() => focusWords(false)}
+          />
         </div>
 
         <footer className="lab-rail" aria-label="Saved settings">
@@ -316,7 +442,57 @@ export default function ContourLab() {
       </div>
 
       <aside className="lab-panel">
-        <div className="lab-scroll">
+        <div className="lab-tabs">
+          <div className="lab-seg" role="group" aria-label="Panel">
+            <button
+              type="button"
+              aria-pressed={tab === 'contours'}
+              onClick={() => {
+                setTab('contours')
+                select(null)
+              }}
+            >
+              Contours
+            </button>
+            <button type="button" aria-pressed={tab === 'text'} onClick={() => setTab('text')}>
+              Text
+            </button>
+            <button
+              type="button"
+              aria-pressed={tab === 'logo'}
+              onClick={() => {
+                setTab('logo')
+                select(null)
+              }}
+            >
+              Logo
+            </button>
+          </div>
+        </div>
+
+        {tab === 'text' && (
+          <div className="lab-scroll">
+            <TextPanel
+              texts={texts}
+              text={selectedText}
+              colors={textColorsOf(shown)}
+              inputRef={textInput}
+              onAdd={addText}
+              onSelect={select}
+              onChange={(change) => selected && editText(selected, change)}
+              onRemove={removeText}
+            />
+          </div>
+        )}
+
+        {tab === 'logo' && (
+          <div className="lab-scroll">
+            <LogoPanel logo={logo} colors={textColorsOf(shown)} onChange={(change) => setLogo((l) => ({ ...l, ...change }))} />
+          </div>
+        )}
+
+        {/* Stays mounted under the other tabs, so it keeps its scroll. */}
+        <div className="lab-scroll" hidden={tab !== 'contours'}>
           <div className="lab-modes" role="group" aria-label="Field">
             {MODE_IDS.map((id) => (
               <button

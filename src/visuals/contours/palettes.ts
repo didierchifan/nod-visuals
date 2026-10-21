@@ -81,6 +81,8 @@ export function rgb(hex: string): RGB {
 
 export const css = ([r, g, b]: RGB) => `rgb(${r} ${g} ${b})`
 
+export const hex = (color: RGB) => `#${color.map((v) => v.toString(16).padStart(2, '0')).join('')}`
+
 const byte = (v: number) => Math.round(Math.min(255, Math.max(0, v)))
 
 /** The hue-rotate matrix from the CSS filter spec: turns hue, keeps luminance. */

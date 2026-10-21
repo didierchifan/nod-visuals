@@ -53,4 +53,13 @@ function contourLabSaves(): Plugin {
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), contourLabSaves()],
+  build: {
+    rolldownOptions: {
+      // The contour lab at /, the fluid lab at /fluid.
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        fluid: fileURLToPath(new URL('./fluid.html', import.meta.url)),
+      },
+    },
+  },
 })

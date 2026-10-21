@@ -10,7 +10,7 @@ interface KnobProps {
   /** Turns all the way round and wraps, for angles and phase. */
   dial?: boolean
   unit?: string
-  /** The current field ignores this knob. */
+  /** Turning this knob does nothing right now, like a field that ignores it. */
   idle?: boolean
   /** Being turned by Randomly animate. */
   drifting?: boolean
@@ -125,7 +125,7 @@ export function Knob({
       aria-valuetext={shown}
       data-idle={idle || undefined}
       data-drifting={drifting || undefined}
-      title={idle ? `${label} has no effect on this field` : 'Drag to turn · Shift for fine · Double-click to reset'}
+      title={idle ? `${label} has no effect here` : 'Drag to turn · Shift for fine · Double-click to reset'}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

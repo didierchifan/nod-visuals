@@ -223,14 +223,18 @@ function scratchContext(name: string, width: number, height: number) {
   return ctx
 }
 
+/** Where `paint` puts the grid in a `width` x `height` canvas, in pixels: centred, whole pixels per cell. */
+export function frameRect(cols: number, rows: number, width: number, height: number) {
+  const cell = Math.max(1, Math.floor(Math.min(width / cols, height / rows)))
+  const w = cell * cols
+  const h = cell * rows
+  return { x: Math.floor((width - w) / 2), y: Math.floor((height - h) / 2), width: w, height: h, cell }
+}
+
 /** Integer cell sizes only, so every LED and every gap is the same number of pixels. */
 export function paint(ctx: CanvasRenderingContext2D, shaded: Shaded, config: ContourConfig, width: number, height: number) {
   const { cols, rows } = shaded
-  const cellPx = Math.max(1, Math.floor(Math.min(width / cols, height / rows)))
-  const gridW = cellPx * cols
-  const gridH = cellPx * rows
-  const ox = Math.floor((width - gridW) / 2)
-  const oy = Math.floor((height - gridH) / 2)
+  const { x: ox, y: oy, width: gridW, height: gridH, cell: cellPx } = frameRect(cols, rows, width, height)
 
   ctx.save()
   ctx.globalCompositeOperation = 'source-over'
