@@ -854,6 +854,17 @@ textarea.lab-input {
   text-overflow: ellipsis;
 }
 
+/* Offered inside a notice to take back what was just replaced. */
+.lab-undo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--lab-text);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .lab *,
   .lab *::before {

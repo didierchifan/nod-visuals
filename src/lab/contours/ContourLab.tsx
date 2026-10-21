@@ -19,6 +19,7 @@ import { colorsOf, css, hex, PALETTE_IDS, PALETTES } from '../../visuals/contour
 import { frameRect, renderToCanvas } from '../../visuals/contours/render.ts'
 import type { AspectId, ContourConfig, DriftGroup, GlobalKey } from '../../visuals/contours/types.ts'
 import type { FrameOf } from '../../visuals/frame.ts'
+import { POSTER_ASPECT, POSTER_LOGO, POSTER_LOGO_COLOR, POSTER_TEXTS } from '../../visuals/text/layout.ts'
 import { createText, drawTexts, loadFonts, type TextLayer } from '../../visuals/text/text.ts'
 import { Knob } from './Knob.tsx'
 import {
@@ -33,6 +34,7 @@ import {
   store,
   storeLogo,
   storeTexts,
+  type LogoState,
   type SavedConfig,
 } from './lab.ts'
 import { Logo } from './Logo.tsx'
@@ -100,6 +102,10 @@ export default function ContourLab() {
   const [future, setFuture] = useState<ContourConfig[]>([])
   const [saved, setSaved] = useState<SavedConfig[]>([])
   const [notice, setNotice] = useState('')
+  // What Default layout replaced, offered back for as long as its notice shows.
+  const [undo, setUndo] = useState<{ notice: string; texts: TextLayer[]; logo: LogoState; aspect: AspectId } | null>(
+    null,
+  )
   const [logo, setLogo] = useState(loadLogo)
   const [texts, setTexts] = useState<TextLayer[]>(loadTexts)
   const [selected, setSelected] = useState<string | null>(null)
@@ -126,9 +132,9 @@ export default function ContourLab() {
 
   useEffect(() => {
     if (!notice) return
-    const timer = setTimeout(() => setNotice(''), 3600)
+    const timer = setTimeout(() => setNotice(''), undo?.notice === notice ? 8000 : 3600)
     return () => clearTimeout(timer)
-  }, [notice])
+  }, [notice, undo])
 
   // Keeps the panel in step with the canvas while knobs drift.
   useEffect(() => {
@@ -235,6 +241,25 @@ export default function ContourLab() {
   const removeText = () => {
     setTexts((ts) => ts.filter((t) => t.id !== selected))
     setSelected(null)
+  }
+
+  const restoreLayout = () => {
+    const message = 'Back to the default layout'
+    setUndo({ notice: message, texts, logo, aspect: config.aspect })
+    setTexts(POSTER_TEXTS)
+    setLogo((l) => ({ ...l, ...POSTER_LOGO, color: POSTER_LOGO_COLOR, shown: true }))
+    update((c) => ({ ...c, aspect: POSTER_ASPECT }))
+    setSelected(null)
+    setNotice(message)
+  }
+
+  const undoLayout = () => {
+    if (!undo) return
+    setTexts(undo.texts)
+    setLogo(undo.logo)
+    update((c) => ({ ...c, aspect: undo.aspect }))
+    setUndo(null)
+    setNotice('Your layout is back')
   }
 
   const nudge = (text: TextLayer, [dx, dy]: [number, number]) => {
@@ -478,6 +503,7 @@ export default function ContourLab() {
               colors={textColorsOf(shown)}
               inputRef={textInput}
               onAdd={addText}
+              onLayout={restoreLayout}
               onSelect={select}
               onChange={(change) => selected && editText(selected, change)}
               onRemove={removeText}
@@ -623,6 +649,14 @@ export default function ContourLab() {
         </div>
         <p className="lab-notice" aria-live="polite">
           {notice}
+          {undo?.notice === notice && (
+            <>
+              {' · '}
+              <button type="button" className="lab-undo" onClick={undoLayout}>
+                Undo
+              </button>
+            </>
+          )}
         </p>
       </aside>
     </div>

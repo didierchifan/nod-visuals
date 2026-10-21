@@ -80,7 +80,9 @@
       "Bash(node compare.mjs ../shots)",
       "Bash(node interact2.mjs /private/tmp/claude-502/-Users-didierchifan-nod-visuals/e23d9ec4-fb31-4318-8299-6f37fad37348/scratchpad/shots)",
       "Bash(node pngcheck.mjs /private/tmp/claude-502/-Users-didierchifan-nod-visuals/e23d9ec4-fb31-4318-8299-6f37fad37348/scratchpad/shots)",
-      "Bash(node shot.mjs http://localhost:5291/fluid /private/tmp/claude-502/-Users-didierchifan-nod-visuals/e23d9ec4-fb31-4318-8299-6f37fad37348/scratchpad/shots/v4-panel.png panel)"
+      "Bash(node shot.mjs http://localhost:5291/fluid /private/tmp/claude-502/-Users-didierchifan-nod-visuals/e23d9ec4-fb31-4318-8299-6f37fad37348/scratchpad/shots/v4-panel.png panel)",
+      "Bash(node -e 'const s = require\\(process.argv[1]\\); console.log\\(\"fluid aspect:\", s[\"nod-visuals:fluid-lab\"].aspect, \"| contour aspect:\", s[\"nod-visuals:contour-lab\"].aspect, \"| contour mode:\", s[\"nod-visuals:contour-lab\"].mode\\)' /private/tmp/claude-502/-Users-didierchifan-nod-visuals/e23d9ec4-fb31-4318-8299-6f37fad37348/scratchpad/stored-5174.json)",
+      "Bash(node layout.mjs /private/tmp/claude-502/-Users-didierchifan-nod-visuals/e23d9ec4-fb31-4318-8299-6f37fad37348/scratchpad/shots /private/tmp/claude-502/-Users-didierchifan-nod-visuals/e23d9ec4-fb31-4318-8299-6f37fad37348/scratchpad/stored-5174.json)"
     ]
   }
 }

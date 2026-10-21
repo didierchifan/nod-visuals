@@ -1,5 +1,6 @@
 import { ASPECTS } from '../contours/config.ts'
 import type { AspectId } from '../contours/types.ts'
+import { POSTER_ASPECT } from '../text/layout.ts'
 
 /** Named as the leva panel in 3d-portfolio's raging-sea names them, so settings carry over both ways. */
 export interface FluidConfig {
@@ -51,7 +52,7 @@ export const DEFAULT_CONFIG: FluidConfig = {
   uSmallIterations: 4,
   uColorOffset: 0.925,
   uColorMultiplier: 1,
-  aspect: '16:9',
+  aspect: POSTER_ASPECT,
   zoom: 0.25,
 }
 

@@ -17,6 +17,12 @@ import {
 import { fitAspect } from "../../visuals/fluid/water.ts";
 import type { FrameOf } from "../../visuals/frame.ts";
 import {
+  POSTER_ASPECT,
+  POSTER_LOGO,
+  POSTER_LOGO_COLOR,
+  POSTER_TEXTS,
+} from "../../visuals/text/layout.ts";
+import {
   createText,
   drawTexts,
   loadFonts,
@@ -74,8 +80,8 @@ export default function FluidLab() {
     () => loadStored() ?? DEFAULT_CONFIG,
   );
   const [notice, setNotice] = useState("");
-  // The settings Defaults replaced, while its notice offers them back.
-  const [undo, setUndo] = useState<FluidConfig | null>(null);
+  // Takes back what Defaults or Default layout replaced, while its notice offers it.
+  const [undo, setUndo] = useState<(() => void) | null>(null);
   const [logo, setLogo] = useState(() => loadLogo(LOGO_KEY));
   const [texts, setTexts] = useState<TextLayer[]>(() => loadTexts(TEXTS_KEY));
   const [selected, setSelected] = useState<string | null>(null);
@@ -127,9 +133,33 @@ export default function FluidLab() {
     }));
 
   const resetDefaults = () => {
+    const previous = config;
     setConfig(DEFAULT_CONFIG);
     setNotice("Back to the default settings");
-    setUndo(config);
+    setUndo(() => () => {
+      setConfig(previous);
+      say("Your settings are back");
+    });
+  };
+
+  const restoreLayout = () => {
+    const previous = { texts, logo, aspect: config.aspect };
+    setTexts(POSTER_TEXTS);
+    setLogo((l) => ({
+      ...l,
+      ...POSTER_LOGO,
+      color: POSTER_LOGO_COLOR,
+      shown: true,
+    }));
+    set("aspect", POSTER_ASPECT);
+    setSelected(null);
+    setNotice("Back to the default layout");
+    setUndo(() => () => {
+      setTexts(previous.texts);
+      setLogo(previous.logo);
+      set("aspect", previous.aspect);
+      say("Your layout is back");
+    });
   };
 
   const editText = (id: string, change: Partial<TextLayer>) =>
@@ -439,6 +469,7 @@ export default function FluidLab() {
               source={SWATCHES}
               inputRef={textInput}
               onAdd={addText}
+              onLayout={restoreLayout}
               onSelect={select}
               onChange={(change) => selected && editText(selected, change)}
               onRemove={removeText}
@@ -530,14 +561,7 @@ export default function FluidLab() {
           {undo && (
             <>
               {" · "}
-              <button
-                type="button"
-                className="fluid-undo"
-                onClick={() => {
-                  setConfig(undo);
-                  say("Your settings are back");
-                }}
-              >
+              <button type="button" className="lab-undo" onClick={undo}>
                 Undo
               </button>
             </>

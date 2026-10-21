@@ -1,3 +1,4 @@
+import { POSTER_ASPECT } from '../text/layout.ts'
 import { MODE_IDS, MODES, modeDefaults } from './modes/index.ts'
 import { PALETTES } from './palettes.ts'
 import type { AspectId, ContourConfig, DriftGroup, GlobalKey, ModeId, ParamSpec, TintStyle } from './types.ts'
@@ -57,7 +58,7 @@ export const DEFAULT_CONFIG: ContourConfig = {
   version: 1,
   seed: 0x2f6b1d4a,
   mode: 'fairy',
-  aspect: '16:9',
+  aspect: POSTER_ASPECT,
   ...globals,
   palette: 'foxfire',
   tintStyle: 'rise',

@@ -23,12 +23,25 @@ interface TextPanelProps {
   source?: SwatchSource
   inputRef: Ref<HTMLTextAreaElement>
   onAdd(): void
+  /** Puts the poster's texts and logo back in place of these. */
+  onLayout?(): void
   onSelect(id: string): void
   onChange(change: Partial<TextLayer>): void
   onRemove(): void
 }
 
-export function TextPanel({ texts, text, colors, source, inputRef, onAdd, onSelect, onChange, onRemove }: TextPanelProps) {
+export function TextPanel({
+  texts,
+  text,
+  colors,
+  source,
+  inputRef,
+  onAdd,
+  onLayout,
+  onSelect,
+  onChange,
+  onRemove,
+}: TextPanelProps) {
   return (
     <>
       <div className="lab-text-list" role="group" aria-label="Texts">
@@ -47,6 +60,11 @@ export function TextPanel({ texts, text, colors, source, inputRef, onAdd, onSele
         <button type="button" className="lab-btn" onClick={onAdd}>
           Add text
         </button>
+        {onLayout && (
+          <button type="button" className="lab-btn" onClick={onLayout}>
+            Default layout
+          </button>
+        )}
       </div>
       {text ? (
         <TextEditor text={text} colors={colors} source={source} inputRef={inputRef} onChange={onChange} onRemove={onRemove} />

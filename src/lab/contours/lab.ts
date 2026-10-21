@@ -1,6 +1,7 @@
 import { normalizeConfig } from '../../visuals/contours/config.ts'
 import { freeze } from '../../visuals/contours/drift.ts'
 import type { ContourConfig } from '../../visuals/contours/types.ts'
+import { POSTER_LOGO, POSTER_LOGO_COLOR, POSTER_TEXTS } from '../../visuals/text/layout.ts'
 import { normalizeTexts, type TextColor, type TextLayer } from '../../visuals/text/text.ts'
 
 /** Served by the dev-only plugin in vite.config.ts. */
@@ -28,7 +29,8 @@ export interface LogoState extends LogoPlacement {
   color: TextColor
 }
 
-export const DEFAULT_LOGO: LogoPlacement = { x: 0.5, y: 0.5, width: 0.3 }
+/** Where the poster has it, which is also where a double-click puts it back. */
+export const DEFAULT_LOGO: LogoPlacement = POSTER_LOGO
 
 export function randomSeed() {
   return crypto.getRandomValues(new Uint32Array(1))[0]
@@ -84,12 +86,13 @@ export function store(config: ContourConfig) {
 
 // The text and logo helpers take another lab's own storage key; left out, they keep this lab's.
 
+/** The stored texts, or the poster's when this browser has none. */
 export function loadTexts(key = TEXTS_KEY) {
   try {
     const raw = localStorage.getItem(key)
-    return raw ? normalizeTexts(JSON.parse(raw)) : []
+    return raw ? normalizeTexts(JSON.parse(raw)) : POSTER_TEXTS
   } catch {
-    return []
+    return POSTER_TEXTS
   }
 }
 
@@ -102,7 +105,7 @@ export function storeTexts(texts: TextLayer[], key = TEXTS_KEY) {
 }
 
 export function loadLogo(key = LOGO_KEY): LogoState {
-  const logo: LogoState = { ...DEFAULT_LOGO, shown: true, color: 'accent' }
+  const logo: LogoState = { ...DEFAULT_LOGO, shown: true, color: POSTER_LOGO_COLOR }
   try {
     const stored = JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, unknown>
     for (const key of ['x', 'y', 'width'] as const) {

@@ -96,13 +96,3 @@
     font-size: 16px;
   }
 }
-
-.fluid-undo {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--lab-text);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-}
