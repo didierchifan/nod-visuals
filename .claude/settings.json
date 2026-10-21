@@ -31,7 +31,11 @@
       "Bash(node holdcheck.mjs)",
       "Bash(sed -i '' 's/f <= 600/f <= 1800/; s/i % 150 === 0/i % 300 === 0/; s/reversals in 20s/reversals in 60s/' continuous.ts)",
       "Bash(node continuous.ts)",
-      "Bash(node drive2.mjs)"
+      "Bash(node drive2.mjs)",
+      "Bash(curl -s -o /dev/null http://localhost:4791/)",
+      "Bash(break)",
+      "Bash(sed -i '' \"s#for \\(const url of \\\\['http://localhost:5173/', 'http://localhost:4173/'\\\\]\\)#for \\(const url of ['http://localhost:4791/']\\)#\" rootcheck.mjs)",
+      "Bash(node rootcheck.mjs)"
     ]
   }
 }

@@ -26,9 +26,12 @@ export function rebase(config: ContourConfig, epoch: number) {
   return { config: freeze(config, Math.max(0, (now - epoch) / 1000)), epoch: now }
 }
 
+// Outside the dev server the endpoint is missing, or a host answers with the page itself.
+const fromDevServer = (res: Response) => res.ok && (res.headers.get('Content-Type') ?? '').includes('application/json')
+
 export async function listSaved(): Promise<SavedConfig[]> {
   const res = await fetch(ENDPOINT)
-  if (!res.ok) return []
+  if (!fromDevServer(res)) return []
   const entries = (await res.json()) as { path: string; config: unknown }[]
   return entries.flatMap(({ path, config }) => {
     const normalized = normalizeConfig(config)
@@ -39,7 +42,7 @@ export async function listSaved(): Promise<SavedConfig[]> {
 /** Writes the config into the project and returns its path, or null without a dev server. */
 export async function saveConfig(json: string): Promise<string | null> {
   const res = await fetch(ENDPOINT, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: json })
-  if (!res.ok) return null
+  if (!fromDevServer(res)) return null
   return ((await res.json()) as { path: string }).path
 }
 

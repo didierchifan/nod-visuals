@@ -1,9 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Root } from './Root.tsx'
+import ContourLab from './lab/contours/ContourLab.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <Root />
+    <ContourLab />
   </StrictMode>,
 )
